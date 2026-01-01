@@ -85,46 +85,65 @@ def init_PLNE_Model(config):
         M.addVar(f"fightHost_{j}", vtype="B") for j in range(config["nHosts"])
     ]
 
-    # Init matrix to define the win value obtained by contestant team
-    win_values = [
-        [
-            int(config["Hosts_Values"][j][2]) for j in range(config["nHosts"])
-        ] for _ in range(config["nContestant"])
-    ]
-
-    return M, fights_config, fights_host, win_values
+    return M, fights_config, fights_host
 
 
-def display_PLNE_Instance(model, config, fights_config, fight_host):
+def display_PLNE_Instance(model, config, fights_config, fight_host, isCaptain, hasJok):
     """
-        Display PLNE Model results after optimisation
+    Display PLNE Model results after optimization, including captain details.
     """
-    # Checking sol status
+
+    # Checking solution status
     if model.getStatus() != "optimal":
-        print(f"Model is not optimal (Statut : {model.getStatus()})")
+        print(f"Warning: Model is not optimal (Status: {model.getStatus()})")
 
-    print("\n======= OPTIMISATION RESULTS =======")
-    print(f"Total Gain (Objectif) : {model.getObjVal()}")
+    print("\n======= OPTIMIZATION RESULTS =======")
+    print(f"Total Gain (Objective): {model.getObjVal()}")
     
-    print("\n=> Foughts Hosts (ID) :")
+    # Identify and display the Captain and Joker
+    joker_id = None 
+    captain_id = None
+    for i in range(config['nContestant']):
+        if model.getVal(isCaptain[i]) > 0.5:
+            captain_id = i + 1
+            break
+        if model.getVal(hasJok[i]) >= 1: 
+            joker_id = i + 1
+            break
+    
+    if captain_id:
+        print(f"Designated Captain: Contestant {captain_id} (+5 competence bonus)")
+    else:
+        print("Designated Captain: None selected")
+
+    if joker_id:
+        print(f"Designated Joker: Contestant {joker_id} (x2 win/lose bonus)")
+    else:
+        print("Designated Joker: None selected")
+
+    # Display Fought Hosts
+    print("\n=> Fought Hosts (IDs):")
     hosts_fought_count = 0
     for j in range(config['nHosts']): 
         if model.getVal(fight_host[j]) > 0.5:
-            print(f"Hôte {j+1} ", end="| ")
+            print(f"Host {j+1}", end=" | ")
             hosts_fought_count += 1
     
-    print(f"\nTotal : {hosts_fought_count} foughts hosts on {config['nHosts']}.")
+    print(f"\nTotal: {hosts_fought_count} hosts fought out of {config['nHosts']}.")
 
-    print("\n=> Fights Config (Contestant -> Host) :")
+    # Display Detailed Fights
+    print("\n=> Fights Configuration (Contestant -> Host):")
     for i in range(config["nContestant"]): 
         for j in range(config["nHosts"]): 
             if model.getVal(fights_config[i][j]) > 0.5:
-                print(f" - Contestant {i+1} confront host {j+1}")
+                # Add a label if the contestant is the captain
+                cap_label = " (as Captain)" if (i + 1) == captain_id else ""
+                print(f" - Contestant {i+1}{cap_label} confronts Host {j+1}")
 
     print("\n===========================================")
 
 
-def solve_PLNE_1(model, config, fight_config, fight_host, win_values): 
+def solve_PLNE_without_captain(model, config, fight_config, fight_host): 
     """
         Solve the PLNE problem with the given constraints
     """
@@ -186,6 +205,113 @@ def solve_PLNE_1(model, config, fight_config, fight_host, win_values):
     # Launching optumisation
     model.optimize()
 
+def solve_PLNE_full(model, config, fight_config, fight_host): 
+    """
+    Solves the PLNE problem with Captain bonus, Joker multiplier, 
+    Energy budget, and Host penalties.
+    """
+    nContestant = config['nContestant']
+    nHosts = config['nHosts']
+    P = config['Penalty']
+    S = 5  # Captain competence bonus
+
+    # Retrieve energy costs from host data [cite: 1]
+    fight_cost = [int(config['Hosts_Values'][j][3]) for j in range(nHosts)]
+
+    # 1. Pre-calculate four gain matrices to keep the objective linear
+    g_norm, g_cap, g_jok, g_both = [], [], [], []
+    
+    for i in range(nContestant):
+        r_n, r_c, r_j, r_b = [], [], [], []
+        c_comp = int(config['Contestants_Values'][i])
+        for j in range(nHosts):
+            h_comp = int(config['Hosts_Values'][j][0])
+            w = int(config['Hosts_Values'][j][1])
+            l = int(config['Hosts_Values'][j][2])
+            
+            # Helper to calculate gain based on competence and multiplier [cite: 2]
+            def calc_gain(comp, multiplier):
+                if comp > h_comp:
+                    return w * multiplier
+                elif comp < h_comp:
+                    return -l * multiplier
+                return 0
+
+            r_n.append(calc_gain(c_comp, 1))      # Normal fight
+            r_c.append(calc_gain(c_comp + S, 1))  # Captain bonus (+5)
+            r_j.append(calc_gain(c_comp, 2))      # Joker bonus (x2)
+            r_b.append(calc_gain(c_comp + S, 2))  # Both bonuses active
+            
+        g_norm.append(r_n)
+        g_cap.append(r_c)
+        g_jok.append(r_j)
+        g_both.append(r_b)
+
+    # 2. Decision Variables for roles
+    isCap = [model.addVar(f"isCap_{i}", vtype="B") for i in range(nContestant)]
+    hasJok = [model.addVar(f"hasJok_{i}", vtype="B") for i in range(nContestant)]
+    
+    # 3. Linearization variables for combined states
+    # isCF: i fights j AND i is Captain
+    # isJF: i fights j AND i has Joker
+    # isBF: i fights j AND i is Captain AND i has Joker
+    isCF = [[model.addVar(f"isCF_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
+    isJF = [[model.addVar(f"isJF_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
+    isBF = [[model.addVar(f"isBF_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
+
+    # 4. Global Role Constraints
+    model.addCons(sum(isCap[i] for i in range(nContestant)) <= 1)   # Max 1 captain
+    model.addCons(sum(hasJok[i] for i in range(nContestant)) <= 1)  # Max 1 Joker card
+
+    for i in range(nContestant):
+        # Rule: Captain fights max 1 time, others max 2 [cite: 2]
+        model.addCons(sum(fight_config[i][j] for j in range(nHosts)) <= 2 - isCap[i])
+        
+        for j in range(nHosts):
+            # Linearization for Captain AND Fight
+            model.addCons(isCF[i][j] <= fight_config[i][j])
+            model.addCons(isCF[i][j] <= isCap[i])
+            model.addCons(isCF[i][j] >= fight_config[i][j] + isCap[i] - 1)
+            
+            # Linearization for Joker AND Fight
+            model.addCons(isJF[i][j] <= fight_config[i][j])
+            model.addCons(isJF[i][j] <= hasJok[i])
+            model.addCons(isJF[i][j] >= fight_config[i][j] + hasJok[i] - 1)
+
+            # Linearization for Both AND Fight (Captain AND Joker AND Fight)
+            model.addCons(isBF[i][j] <= isCF[i][j])
+            model.addCons(isBF[i][j] <= hasJok[i])
+            model.addCons(isBF[i][j] >= isCF[i][j] + hasJok[i] - 1)
+
+    # 5. Host and Energy Constraints
+    for j in range(nHosts):
+        # Each host can be engaged in at most one fight [cite: 2]
+        model.addCons(sum(fight_config[i][j] for i in range(nContestant)) == fight_host[j])
+
+    # Rule: Total energy costs must not exceed budget B [cite: 2]
+    model.addCons(sum(fight_cost[j] * fight_host[j] for j in range(nHosts)) <= config['Energy_Budget'])
+
+    # 6. Objective Function Calculation
+    # We use inclusion-exclusion logic to ensure only one gain matrix applies per fight
+    total_fights_gain = sum(
+        g_norm[i][j] * (fight_config[i][j] - isCF[i][j] - isJF[i][j] + isBF[i][j]) +
+        g_cap[i][j] * (isCF[i][j] - isBF[i][j]) +
+        g_jok[i][j] * (isJF[i][j] - isBF[i][j]) +
+        g_both[i][j] * isBF[i][j]
+        for i in range(nContestant) for j in range(nHosts)
+    )
+    
+    # Penalty for each host that remains unfought [cite: 2]
+    total_penalty = P * (nHosts - sum(fight_host))
+
+    model.setObjective(total_fights_gain - total_penalty, "maximize")
+
+    # Optimization Execution
+    # model.hideOutput()
+    model.optimize()
+    
+    return isCap, hasJok
+
 
 # --------------------------
 # Execution
@@ -194,10 +320,13 @@ def solve_PLNE_1(model, config, fight_config, fight_host, win_values):
 config = extract_instance(display=True)
 
 # Initialisation
-model, fight_config, fight_host, win_values = init_PLNE_Model(config)
+model, fight_config, fight_host = init_PLNE_Model(config)
 
 # Solving
-solve_PLNE_1(model, config, fight_config, fight_host, win_values)
+# solve_PLNE_without_captain(model, config, fight_config, fight_host)
+
+# Solving 
+isCap, hasJok = solve_PLNE_full(model, config, fight_config, fight_host)
 
 # Display Results
-display_PLNE_Instance(model, config, fight_config, fight_host)
+display_PLNE_Instance(model, config, fight_config, fight_host, isCap, hasJok)
