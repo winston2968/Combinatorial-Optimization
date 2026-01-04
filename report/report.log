@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025/Homebrew) (preloaded format=pdflatex 2025.11.7)  4 JAN 2026 12:14
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025/Homebrew) (preloaded format=pdflatex 2025.11.7)  4 JAN 2026 15:57
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -941,22 +941,28 @@ Package: float 2001/11/08 v1.3d Float enhancements (AL)
 \float@box=\box123
 \@float@everytoks=\toks67
 \@floatcapt=\box124
+) (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/multirow/multirow.sty
+Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
+\multirow@colwidth=\skip167
+\multirow@cntb=\count374
+\multirow@dima=\skip168
+\bigstrutjot=\dimen342
 )
-\c@remark=\count374
-\c@proposition=\count375
-\c@lemma=\count376
-\c@prop=\count377
-\c@corollary=\count378
-\c@proof=\count379
-\c@example=\count380
-\tindent=\skip167
+\c@remark=\count375
+\c@proposition=\count376
+\c@lemma=\count377
+\c@prop=\count378
+\c@corollary=\count379
+\c@proof=\count380
+\c@example=\count381
+\tindent=\skip169
  (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/fancyvrb/fancyvrb.sty
 Package: fancyvrb 2024/01/20 4.5c verbatim text (tvz,hv)
-\FV@CodeLineNo=\count381
+\FV@CodeLineNo=\count382
 \FV@InFile=\read4
 \FV@TabBox=\box125
-\c@FancyVerbLine=\count382
-\FV@StepNumber=\count383
+\c@FancyVerbLine=\count383
+\FV@StepNumber=\count384
 \FV@OutFile=\write5
 ) (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/tikz-cd/tikz-cd.sty
 Package: tikz-cd 2021/05/04 v1.0 Commutative diagrams with TikZ
@@ -966,10 +972,10 @@ File: tikzlibrarymatrix.code.tex 2023-01-15 v3.1.10 (3.1.10)
 File: tikzlibraryquotes.code.tex 2023-01-15 v3.1.10 (3.1.10)
 ) (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.tex
 File: pgflibraryarrows.meta.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\pgfarrowinset=\dimen342
-\pgfarrowlength=\dimen343
-\pgfarrowwidth=\dimen344
-\pgfarrowlinewidth=\dimen345
+\pgfarrowinset=\dimen343
+\pgfarrowlength=\dimen344
+\pgfarrowwidth=\dimen345
+\pgfarrowlinewidth=\dimen346
 ))) (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/jknapltx/mathrsfs.sty
 Package: mathrsfs 1996/01/01 Math RSFS package v1.0 (jk)
 \symrsfs=\mathgroup7
@@ -980,18 +986,18 @@ Package: tkz-graph 2021/01/20 2.00 base for graphs
 File: tikzlibraryarrows.code.tex 2023-01-15 v3.1.10 (3.1.10)
  (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.code.tex
 File: pgflibraryarrows.code.tex 2023-01-15 v3.1.10 (3.1.10)
-\arrowsize=\dimen346
+\arrowsize=\dimen347
 ))
-\c@tkz@gr@a=\count384
-\c@tkz@gr@b=\count385
-\c@tkz@gr@c=\count386
-\c@tkz@gr@e=\count387
-\c@tkz@gr@d=\count388
-\c@tkz@gr@p=\count389
-\c@tkz@gr@i=\count390
-\c@tkz@gr@n=\count391
-\c@tkz@gr@ta=\count392
-\c@tkz@gr@tb=\count393
+\c@tkz@gr@a=\count385
+\c@tkz@gr@b=\count386
+\c@tkz@gr@c=\count387
+\c@tkz@gr@e=\count388
+\c@tkz@gr@d=\count389
+\c@tkz@gr@p=\count390
+\c@tkz@gr@i=\count391
+\c@tkz@gr@n=\count392
+\c@tkz@gr@ta=\count393
+\c@tkz@gr@tb=\count394
 )) (./report.aux)
 \openout1 = `report.aux'.
 
@@ -1052,16 +1058,16 @@ LaTeX Info: Redefining \degres on input line 7.
 LaTeX Info: Redefining \up on input line 7.
 (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count394
-\scratchdimen=\dimen347
+\scratchcounter=\count395
+\scratchdimen=\dimen348
 \scratchbox=\box126
-\nofMPsegments=\count395
-\nofMParguments=\count396
+\nofMPsegments=\count396
+\nofMParguments=\count397
 \everyMPshowfont=\toks68
-\MPscratchCnt=\count397
-\MPscratchDim=\dimen348
-\MPnumerator=\count398
-\makeMPintoPDFobject=\count399
+\MPscratchCnt=\count398
+\MPscratchDim=\dimen349
+\MPnumerator=\count399
+\makeMPintoPDFobject=\count400
 \everyMPtoPDFconversion=\toks69
 ) (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
@@ -1079,7 +1085,7 @@ Package hyperref Info: Link coloring OFF on input line 7.
 \@outlinefile=\write6
 \openout6 = `report.out'.
 
-\c@lstlisting=\count400
+\c@lstlisting=\count401
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 44.
  (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/lm/ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1115,60 +1121,67 @@ LaTeX Font Info:    Trying to load font information for U+stmry on input line 44
 LaTeX Font Info:    Trying to load font information for U+rsfs on input line 44.
  (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/jknapltx/ursfs.fd
 File: ursfs.fd 1998/03/24 rsfs font definition file (jk)
-) (./report.toc)
-\tf@toc=\write7
-\openout7 = `report.toc'.
+)
 
-
-
-<./images/logo_UT.png, id=43, 1563.8425pt x 501.875pt>
+<./images/logo_UT.png, id=20, 1563.8425pt x 501.875pt>
 File: ./images/logo_UT.png Graphic file (type png)
 <use ./images/logo_UT.png>
-Package pdftex.def Info: ./images/logo_UT.png  used on input line 85.
+Package pdftex.def Info: ./images/logo_UT.png  used on input line 89.
 (pdftex.def)             Requested size: 56.9055pt x 18.25664pt.
 [1{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/map/pdftex/updmap/pdftex.map}{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}
 
-{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc} <./images/logo_UT.png (PNG copy)>]
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 106.
+{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc} <./images/logo_UT.png (PNG copy)>]
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 95.
  (/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 
 File: ./images/logo_UT.png Graphic file (type png)
 <use ./images/logo_UT.png>
-Package pdftex.def Info: ./images/logo_UT.png  used on input line 138.
+Package pdftex.def Info: ./images/logo_UT.png  used on input line 142.
 (pdftex.def)             Requested size: 56.9055pt x 18.25664pt.
-[2{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/enc/dvips/lm/lm-mathex.enc}]
-\tf@thm=\write8
-\openout8 = `report.thm'.
+[2]
+
+File: ./images/logo_UT.png Graphic file (type png)
+<use ./images/logo_UT.png>
+Package pdftex.def Info: ./images/logo_UT.png  used on input line 203.
+(pdftex.def)             Requested size: 56.9055pt x 18.25664pt.
+[3]
+
+Package caption Warning: The option `hypcap=true' will be ignored for this
+(caption)                particular \caption on input line 221.
+See the caption package documentation for explanation.
+
+\tf@thm=\write7
+\openout7 = `report.thm'.
 
 
 
 File: ./images/logo_UT.png Graphic file (type png)
 <use ./images/logo_UT.png>
-Package pdftex.def Info: ./images/logo_UT.png  used on input line 154.
+Package pdftex.def Info: ./images/logo_UT.png  used on input line 227.
 (pdftex.def)             Requested size: 56.9055pt x 18.25664pt.
-[3] (./report.aux)
+[4] (./report.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `report.out' has not changed.
-(rerunfilecheck)             Checksum: 036B7276526E6F58FEF04A2AFBC3802B;1040.
+(rerunfilecheck)             Checksum: 8B9D003309A538F9EFAC06593A6EE360;431.
  ) 
 Here is how much of TeX's memory you used:
- 32284 strings out of 473190
- 615497 string characters out of 5704335
- 1099161 words of memory out of 5000000
- 54926 multiletter control sequences out of 15000+600000
+ 32358 strings out of 473190
+ 616876 string characters out of 5704335
+ 1101774 words of memory out of 5000000
+ 54990 multiletter control sequences out of 15000+600000
  609849 words of font info for 71 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 93i,15n,120p,935b,565s stack positions out of 10000i,1000n,20000p,200000b,200000s
-</opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmbxi10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmcsc10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmex10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmmi10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmmi7.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmr10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmr7.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmri10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmri9.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmtt10.pfb>
-Output written on report.pdf (3 pages, 260081 bytes).
+ 93i,16n,120p,935b,575s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmbxi10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmcsc10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmex10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmmi10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmmi7.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmr10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmr7.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmri10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmri9.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></opt/homebrew/Cellar/texlive/20250308_2/share/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb>
+Output written on report.pdf (4 pages, 284358 bytes).
 PDF statistics:
  144 PDF objects out of 1000 (max. 8388607)
- 109 compressed objects within 2 object streams
- 16 named destinations out of 1000 (max. 500000)
- 74 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 106 compressed objects within 2 object streams
+ 25 named destinations out of 1000 (max. 500000)
+ 42 words of extra memory for PDF output out of 10000 (max. 10000000)
 

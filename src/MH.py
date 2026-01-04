@@ -110,7 +110,7 @@ def init_matrix(config, captainIndex, jokerIndex):
         E[j,0] = int(config['HostValues'][j][-1])
     # Init Joker vector 
     J = np.ones((nCont, 1))
-    if jokerIndex: 
+    if jokerIndex is not None: 
         J[jokerIndex] = 2
 
     return C, M, E, J, config['Penalty']
@@ -120,15 +120,19 @@ def get_sol_value(C, M, P, J, nHost):
     Calculate the earning value for a given fight combinaison C and 
     instance parameters M, nHost, and P.
     """
+    if np.any(np.sum(C, axis=0) > 1):
+        return -999999  # Very low score to reject this neighbor
+        
     fightScore = np.sum(C * (M * J))
-    penaltyTot = P * (nHost - np.sum(np.max(C, axis=0)))
+    hosts_fought = np.sum(np.max(C, axis=0))
+    penaltyTot = P * (nHost - hosts_fought)
     return fightScore - penaltyTot
 
 def get_energy_value(C, E):
     """
     Check if energy budget is respected.
     """
-    return np.sum(C @ E)
+    return np.sum(np.max(C, axis=0) * E.flatten())
 
 
 
@@ -136,7 +140,7 @@ def get_energy_value(C, E):
 #                Neigbors Processing Functions
 # ----------------------------------------------------------------
 
-def moove_add_drop(C, E, energy_budget, captain_idx=None):
+def move_add_drop(C, E, energy_budget, captain_idx=None):
     """
     Add/Drop a fight depending on the value of used energy. 
     """
@@ -171,11 +175,13 @@ def moove_add_drop(C, E, energy_budget, captain_idx=None):
             host = np.random.choice(free_hosts)
             cont = np.random.choice(available_conts)
             new_C[cont, host] = 1
+            if get_energy_value(new_C, E) > energy_budget:
+                return C # Reject solution if budbet is exceeded
             
     return new_C
 
 
-def moove_swap_host(C, E, energy_budget): 
+def move_swap_host(C, E, energy_budget): 
     """
     Exchange a fought host with a completely free host for a given contestant.
     """
@@ -210,7 +216,7 @@ def moove_swap_host(C, E, energy_budget):
     return C # Return original if no valid swap found
     
 
-def moove_shift_contestant(C, captain_idx=None):
+def move_shift_contestant(C, captain_idx=None):
     """
     Transfer an existing host from contestant i to contestant k.
     This move is energy-neutral as the host remains the same.
@@ -250,27 +256,35 @@ def moove_shift_contestant(C, captain_idx=None):
 
     return C # Return original if no valid shift is possible
 
-
-def get_neigbor(C, energy_budget, E, probs, captain_idx=None): 
+def move_joker(J): 
     """
-    Choose a neigbor by processing one action : 
+    Moove the Joker to another position. 
+    """
+    new_J = np.ones_like(J)
+    n_cont = len(J)
+    new_joker_idx = np.random.randint(0, n_cont)
+    new_J[new_joker_idx] = 2
+    return new_J, new_joker_idx
+
+
+def get_neigbor(C, J, energy_budget, E, probs, captain_idx=None):
+    """
+    Choose a neigbor by processing one action :
         - Swap : exchange an host from a contestant with a non fought host
-        - Shift : transfers a fought host to another free contestant 
+        - Shift : transfers a fought host to another free contestant
         - Add/Drop : add or drop a fight
-    depending on the probability of each operation given by the probs vector. 
+    depending on the probability of each operation given by the probs vector.
     """
     u = npr.rand()
     if u <= probs[0]: 
-        # Swap
-        new_C = moove_swap_host(C, E, energy_budget)
+        return move_swap_host(C, E, energy_budget), J
     elif u <= probs[1]: 
-        # Shift 
-        new_C = moove_shift_contestant(C, captain_idx)
-    else: 
-        # Add/Drop
-        new_C = moove_add_drop(C, E, energy_budget, captain_idx)
-    
-    return new_C
+        return move_shift_contestant(C, captain_idx), J
+    elif u <= probs[2]:
+        return move_add_drop(C, E, energy_budget, captain_idx), J
+    else:
+        new_J, _ = move_joker(J)
+        return C, new_J
 
 
 # ----------------------------------------------------------------
@@ -286,17 +300,30 @@ def local_search_MH(config, nIter, probs, captain_idx=None, joker_idx=None, verb
     energy_budget = config['Budget']
 
     # Init instance variables
-    init_C, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
-    C_values = [get_sol_value(init_C, M, P, J, nHost)]
-    C = init_C.copy()
+    C, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
+    
+    # Store the current best score to avoid recomputing it
+    current_value = get_sol_value(C, M, P, J, nHost)
+    C_values = [current_value]
 
     if verbose: print("Launching simple local search...")
+    
+    t1 = time.time()
     for _ in range(nIter): 
-        new_C = get_neigbor(C, energy_budget, E, probs, captain_idx)
-        new_C_value = get_sol_value(new_C, M, P, J, nHost)
-        if new_C_value > get_sol_value(C, M, P, J, nHost):
+        # Get a neighbor (could be a change in C or a change in J)
+        new_C, new_J = get_neigbor(C, J, energy_budget, E, probs, captain_idx)
+        
+        # Calculate the score of this new state (New C AND New J)
+        new_value = get_sol_value(new_C, M, P, new_J, nHost)
+        
+        # Standard Hill-Climbing: accept if better or equal
+        if new_value >= current_value:
             C = new_C
-        C_values.append(new_C_value)
+            J = new_J
+            current_value = new_value
+            
+        C_values.append(current_value) # Track the best score so far
+    t2 = time.time()
     
     if verbose: 
         print(f"Best config found with a value : {np.max(C_values)}")
@@ -304,38 +331,96 @@ def local_search_MH(config, nIter, probs, captain_idx=None, joker_idx=None, verb
         plt.title("Solutions Values Evolution")
         plt.xlabel("Iterations")
         # plt.show()
-
-    return C, C_values
-
+    return C, J, C_values, t2 - t1
 
 # ----------------------------------------------------------------
 #                       Captain Local Search
 # ----------------------------------------------------------------
 
-def captain_local_search(config, nIter, joker_idx=None, verbose=True): 
+def captain_local_search(config, nIter, probs, joker_idx=None, verbose=True): 
     C_values_trajs = []
     C_traj = []
     nCont = config['nContestant']
 
     if verbose: print("Launching Captain Local Search...")
+    t1 = time.time()
     # Choose a different captain for each starting 
     for cap in range(nCont): 
         if verbose: print(f"Processing captain {cap}/{nCont}")
-        sol, sol_values = local_search_MH(config, nIter, probs, cap, joker_idx, False)
+        sol, _, sol_values, _= local_search_MH(config, nIter, probs, cap, joker_idx, False)
         C_traj.append(sol)
         C_values_trajs.append(sol_values)
-    
+    t2 = time.time()
     if verbose:
         print(f"Best config found with a value : {np.max(C_values_trajs)}")
+        print(f"Executing time : {t2 - t1}s")
         for cap in range(nCont): 
             plt.plot([i for i in range(0, nIter + 1)], C_values_trajs[cap], label=f"Captain {cap}")
         if nCont <= 15: plt.legend()
         plt.title("Sol Values depending on captain")
         plt.xlabel("Iterations")
         plt.ylabel("Solutions Values")
-        # plt.show()
+        plt.show()
     
-    return C_values_trajs
+    return C_values_trajs, t2 - t1
+
+
+# ----------------------------------------------------------------
+#                    Simulated Annealing
+# ----------------------------------------------------------------
+
+def simulated_annealing(config, nIter, probs, T_start=100, cooling_rate=0.99, captain_idx=None, joker_idx=None):
+    """
+    Implement the simulated annealing to pass throught 
+    local optimum. 
+    """
+    nHost = config['nHost']
+    energy_budget = config['Budget']
+    traj = []
+
+    # Initialization
+    C, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
+    current_value = get_sol_value(C, M, P, J, nHost)
+    best_C, best_J = C.copy(), J.copy()
+    best_value = current_value
+    
+    T = T_start
+    C_values = [current_value]
+
+    t1 = time.time()
+
+    for _ in range(nIter):
+        # Get a neighbor
+        new_C, new_J = get_neigbor(C, J, energy_budget, E, probs, captain_idx)
+        new_value = get_sol_value(new_C, M, P, new_J, nHost)
+        traj.append(new_value)
+        
+        # Acceptance logic
+        delta = new_value - current_value
+        
+        # If better, we accept. If worse, we accept with a probability
+        if delta > 0:
+            C, J = new_C, new_J
+            current_value = new_value
+        else:
+            # Simulated Annealing process
+            acceptance_prob = np.exp(delta / T)
+            if np.random.rand() < acceptance_prob:
+                C, J = new_C, new_J
+                current_value = new_value
+        
+        # Keep track of the absolute best solution found so far
+        if current_value > best_value:
+            best_value = current_value
+            best_C, best_J = C.copy(), J.copy()
+            
+        C_values.append(current_value)
+        
+        # Cooling schedule
+        T *= cooling_rate
+    t2 = time.time()
+
+    return best_C, best_J, C_values, t2 - t1, traj
 
 # ----------------------------------------------------------------
 #                       Execution
@@ -344,13 +429,22 @@ def captain_local_search(config, nIter, joker_idx=None, verbose=True):
 
 config = extract_instance(display = False)
 
-nIter = 700
-probs = [0.3, 0.3, 0.4]
+nIter = 2000
+probs = [0.3, 0.6, 0.9]
 nCont = config['nContestant']
+nHost = config['nHost']
+T_start = 100
+cooling_rate = 0.99
 
-for jok in range(nCont):
-    print(f"=> Launching with Joker {jok}/{nCont}")
-    captain_local_search(config, nIter, jok, True)
+sols = {}
+deltaT = 0
+for cap in range(nCont): 
+    print(f"=> Launching Simulated Annealing for captain {cap+1}/{nCont}")
+    best_C, best_J, C_values, sub_time, traj = simulated_annealing(config, nIter, probs, T_start, cooling_rate, cap, 0)
+    sols[float(np.max(C_values))] = best_C 
+    deltaT += sub_time
 
+print(f"Best value found : {max(sols.keys())}")
+print(f"Executing time : {deltaT}s")
 
-# C, C_values = local_search_MH(config, nIter, probs, None, None, True)
+# _, _  = captain_local_search(config, nIter, probs, True)

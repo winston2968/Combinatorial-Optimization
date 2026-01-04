@@ -4,9 +4,15 @@
 
 
 from pyscipopt import Model
-import time
+from pyscipopt import quicksum
+from pyscipopt import SCIP_PARAMSETTING
+import numpy as np
 import sys
-import os 
+import os
+
+# ----------------------------------------------------------------
+#                   Extracting Instance
+# ----------------------------------------------------------------
 
 SOURCE_FOLDER = "src/instances/"
 ARG = sys.argv[1]
@@ -18,17 +24,21 @@ if not os.path.isfile(FILE_PATH):
     print("Stopping...")
 
 def extract_instance(path=FILE_PATH, display=False):
+    """
+    Extract instance from the file. 
+    """
+
     with open(path, 'r') as file:
-        # On ne garde que les lignes qui ne sont pas des commentaires et non vides
+        # Keep lines without comment
         lines = [l.strip() for l in file.readlines() if l.strip() and not l.startswith("#")]
 
-    # Lecture des 4 paramètres globaux (les 4 premières lignes utiles)
+    # Reading global parameters
     nContestant = int(lines[0])
     nHosts = int(lines[1])
     energyBudget = int(lines[2])
     penalty = int(lines[3])
 
-    # Lecture des combattants (C lignes suivantes)
+    # Reading contestant lines 
     contestantCompValue = []
     idx = 4
     for _ in range(nContestant):
@@ -36,14 +46,13 @@ def extract_instance(path=FILE_PATH, display=False):
         contestantCompValue.append(int(parts[1]))
         idx += 1
 
-    # Lecture des hôtes (H lignes restantes)
-    # Note : Utilisation d'une liste plate pour gérer les sauts de ligne dans les fichiers
+    # Reading host lines 
     hosts_data = []
     for i in range(idx, len(lines)):
         hosts_data.extend(lines[i].split())
     
     hosts = {}
-    # On groupe par 5 (ID, Compétence, Win, Loss, Energy)
+    # Merging host infos
     for i in range(0, len(hosts_data), 5):
         h_id = int(hosts_data[i]) - 1
         hosts[h_id] = hosts_data[i+1 : i+5]
@@ -63,7 +72,6 @@ def extract_instance(path=FILE_PATH, display=False):
         "Contestants_Values" : contestantCompValue, 
         "Hosts_Values" : hosts
     }
-
 
 
 def init_PLNE_Model(config): 
@@ -143,175 +151,90 @@ def display_PLNE_Instance(model, config, fights_config, fight_host, isCaptain, h
     print("\n===========================================")
 
 
-def solve_PLNE_without_captain(model, config, fight_config, fight_host): 
-    """
-        Solve the PLNE problem with the given constraints
-    """
-
+def solve_PLNE_full(model, config, fight_config, fight_host, big_space=False): 
     nContestant = config['nContestant']
     nHosts = config['nHosts']
     P = config['Penalty']
+    S = 5  # Captain bonus
 
-    # Calculate gains values
-    gain_coeffs = []
+    # Gains processing
+    g_norm = np.zeros((nContestant, nHosts))
+    d_cap = np.zeros((nContestant, nHosts))
+    d_jok = np.zeros((nContestant, nHosts))
+    
     for i in range(nContestant):
-        row = []
         c_comp = int(config['Contestants_Values'][i])
         for j in range(nHosts):
             h_comp = int(config['Hosts_Values'][j][0])
-            w_j = int(config['Hosts_Values'][j][1])
-            l_j = int(config['Hosts_Values'][j][2])
+            w, l = int(config['Hosts_Values'][j][1]), int(config['Hosts_Values'][j][2])
             
-            if c_comp > h_comp:
-                row.append(w_j)
-            elif c_comp < h_comp:
-                row.append(-l_j)
-            else:
-                row.append(0)
-        gain_coeffs.append(row)
-
-    # Correct fight_cost calculation based on Hosts_Values
-    fight_cost = [
-        int(config['Hosts_Values'][j][-1]) for j in range(nHosts)
-    ]
-
-    # Each contestant can engage at most 2 fights
-    for i in range(nContestant): 
-        model.addCons(sum(fight_config[i][j] for j in range(nHosts)) <= 2)
-    
-    # Each host can engage at most 1 fight 
-    for j in range(nHosts):
-        model.addCons(sum(fight_config[i][j] for i in range(nContestant)) <= 1)
-    
-    # Links between fight_config and fight_host 
-    for j in range(nHosts): 
-        model.addCons(sum(fight_config[i][j] for i in range(nContestant)) <= fight_host[j])
-
-    # Respect global fight cost
-    model.addCons(sum(fight_cost[j] * fight_host[j] for j in range(nHosts)) <= config['Energy_Budget'])
-
-    # Fights gains sum 
-    total_fights_gain = sum(gain_coeffs[i][j] * fight_config[i][j] 
-                            for i in range(nContestant) for j in range(nHosts))
-    
-    # Penalty sum : P * (nHOsts not foughts)
-    # nHosts - sum(fight_host) give the number of not foughts hosts
-    total_penalty = P * (nHosts - sum(fight_host))
-
-    model.setObjective(total_fights_gain - total_penalty, "maximize")
-
-    model.hideOutput()
-
-    # Launching optumisation
-    model.optimize()
-
-def solve_PLNE_full(model, config, fight_config, fight_host): 
-    """
-    Solves the PLNE problem with Captain bonus, Joker multiplier, 
-    Energy budget, and Host penalties.
-    """
-    nContestant = config['nContestant']
-    nHosts = config['nHosts']
-    P = config['Penalty']
-    S = 5  # Captain competence bonus
-
-    # Retrieve energy costs from host data [cite: 1]
-    fight_cost = [int(config['Hosts_Values'][j][3]) for j in range(nHosts)]
-
-    # 1. Pre-calculate four gain matrices to keep the objective linear
-    g_norm, g_cap, g_jok, g_both = [], [], [], []
-    
-    for i in range(nContestant):
-        r_n, r_c, r_j, r_b = [], [], [], []
-        c_comp = int(config['Contestants_Values'][i])
-        for j in range(nHosts):
-            h_comp = int(config['Hosts_Values'][j][0])
-            w = int(config['Hosts_Values'][j][1])
-            l = int(config['Hosts_Values'][j][2])
-            
-            # Helper to calculate gain based on competence and multiplier [cite: 2]
-            def calc_gain(comp, multiplier):
-                if comp > h_comp:
-                    return w * multiplier
-                elif comp < h_comp:
-                    return -l * multiplier
+            def calc(comp, mult):
+                if comp > h_comp: return w * mult
+                if comp < h_comp: return -l * mult
                 return 0
 
-            r_n.append(calc_gain(c_comp, 1))      # Normal fight
-            r_c.append(calc_gain(c_comp + S, 1))  # Captain bonus (+5)
-            r_j.append(calc_gain(c_comp, 2))      # Joker bonus (x2)
-            r_b.append(calc_gain(c_comp + S, 2))  # Both bonuses active
-            
-        g_norm.append(r_n)
-        g_cap.append(r_c)
-        g_jok.append(r_j)
-        g_both.append(r_b)
+            gn = calc(c_comp, 1)
+            g_norm[i, j] = gn
+            d_cap[i, j] = calc(c_comp + S, 1) - gn
+            d_jok[i, j] = calc(c_comp, 2) - gn
 
-    # 2. Decision Variables for roles
+    # Decision variables
     isCap = [model.addVar(f"isCap_{i}", vtype="B") for i in range(nContestant)]
     hasJok = [model.addVar(f"hasJok_{i}", vtype="B") for i in range(nContestant)]
     
-    # 3. Linearization variables for combined states
-    # isCF: i fights j AND i is Captain
-    # isJF: i fights j AND i has Joker
-    # isBF: i fights j AND i is Captain AND i has Joker
-    isCF = [[model.addVar(f"isCF_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
-    isJF = [[model.addVar(f"isJF_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
-    isBF = [[model.addVar(f"isBF_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
+    # Decision variables for bonus
+    # actCap[i,j] == 1 iff i fight j AND i is Captain
+    actCap = [[model.addVar(f"actCap_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
+    actJok = [[model.addVar(f"actJok_{i}_{j}", vtype="B") for j in range(nHosts)] for i in range(nContestant)]
 
-    # 4. Global Role Constraints
-    model.addCons(sum(isCap[i] for i in range(nContestant)) <= 1)   # Max 1 captain
-    model.addCons(sum(hasJok[i] for i in range(nContestant)) <= 1)  # Max 1 Joker card
+    # Role constraints
+    model.addCons(quicksum(isCap) <= 1)
+    model.addCons(quicksum(hasJok) <= 1)
 
     for i in range(nContestant):
-        # Rule: Captain fights max 1 time, others max 2 [cite: 2]
-        model.addCons(sum(fight_config[i][j] for j in range(nHosts)) <= 2 - isCap[i])
+        # Fights limits : 1 for captain 2 for the others
+        model.addCons(quicksum(fight_config[i][j] for j in range(nHosts)) <= 2 - isCap[i])
         
         for j in range(nHosts):
-            # Linearization for Captain AND Fight
-            model.addCons(isCF[i][j] <= fight_config[i][j])
-            model.addCons(isCF[i][j] <= isCap[i])
-            model.addCons(isCF[i][j] >= fight_config[i][j] + isCap[i] - 1)
+            # Linearization : actCap[i,j] = fight_config[i,j] AND isCap[i]
+            model.addCons(actCap[i][j] <= fight_config[i][j])
+            model.addCons(actCap[i][j] <= isCap[i])
             
-            # Linearization for Joker AND Fight
-            model.addCons(isJF[i][j] <= fight_config[i][j])
-            model.addCons(isJF[i][j] <= hasJok[i])
-            model.addCons(isJF[i][j] >= fight_config[i][j] + hasJok[i] - 1)
+            # Linearisation : actJok[i,j] = fight_config[i,j] AND hasJok[i]
+            model.addCons(actJok[i][j] <= fight_config[i][j])
+            model.addCons(actJok[i][j] <= hasJok[i])
 
-            # Linearization for Both AND Fight (Captain AND Joker AND Fight)
-            model.addCons(isBF[i][j] <= isCF[i][j])
-            model.addCons(isBF[i][j] <= hasJok[i])
-            model.addCons(isBF[i][j] >= isCF[i][j] + hasJok[i] - 1)
-
-    # 5. Host and Energy Constraints
+    # Hosts and energy constraints
+    fight_cost = [int(config['Hosts_Values'][j][3]) for j in range(nHosts)]
     for j in range(nHosts):
-        # Each host can be engaged in at most one fight [cite: 2]
-        model.addCons(sum(fight_config[i][j] for i in range(nContestant)) == fight_host[j])
+        model.addCons(quicksum(fight_config[i][j] for i in range(nContestant)) == fight_host[j])
 
-    # Rule: Total energy costs must not exceed budget B [cite: 2]
-    model.addCons(sum(fight_cost[j] * fight_host[j] for j in range(nHosts)) <= config['Energy_Budget'])
+    model.addCons(quicksum(fight_cost[j] * fight_host[j] for j in range(nHosts)) <= config['Energy_Budget'])
 
-    # 6. Objective Function Calculation
-    # We use inclusion-exclusion logic to ensure only one gain matrix applies per fight
-    total_fights_gain = sum(
-        g_norm[i][j] * (fight_config[i][j] - isCF[i][j] - isJF[i][j] + isBF[i][j]) +
-        g_cap[i][j] * (isCF[i][j] - isBF[i][j]) +
-        g_jok[i][j] * (isJF[i][j] - isBF[i][j]) +
-        g_both[i][j] * isBF[i][j]
+    # Objective function
+    obj_gain = quicksum(
+        g_norm[i,j] * fight_config[i][j] + 
+        d_cap[i,j] * actCap[i][j] + 
+        d_jok[i,j] * actJok[i][j]
         for i in range(nContestant) for j in range(nHosts)
     )
     
-    # Penalty for each host that remains unfought [cite: 2]
-    total_penalty = P * (nHosts - sum(fight_host))
+    obj_penalty = P * (nHosts - quicksum(fight_host[j] for j in range(nHosts)))
+    model.setObjective(obj_gain - obj_penalty, "maximize")
 
-    model.setObjective(total_fights_gain - total_penalty, "maximize")
+    # Branch roles first
+    for i in range(nContestant):
+        model.chgVarBranchPriority(isCap[i], 100)
+        model.chgVarBranchPriority(hasJok[i], 100)
 
-    # Optimization Execution
-    # model.hideOutput()
+    if big_space: 
+        # Change solving paramters for big search space 
+        model.setRealParam("limits/gap", 0.05)
+        model.setPresolve(SCIP_PARAMSETTING.FAST)
+        model.setRealParam("limits/time", 60)
+
     model.optimize()
-    
     return isCap, hasJok
-
 
 # --------------------------
 # Execution

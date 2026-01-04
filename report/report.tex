@@ -45,20 +45,58 @@ Axel PIGEON\\
 \end{center}
 \vspace{1cm}
 
-\tableofcontents
-
 % ==================================================================================================================================
 % Introduction 
 
 \justify
-\subsection{Introduction}
+\subsection*{Introduction}
+
+Nous détaillons ici deux méthodes utilisées pour la résolution de différentes instances de ce problème contenant respectivement 
+6, 20 et 100 combattants. Nous nous intéressons d'abord à la résolution grâce au solveur SCIP en modélisant le problème sous 
+forme de Programme Linéaire en Nombres Entiers. Cette approche nous permettra d'obtenir des solutions optimales. 
+Dans un second temps, nous nous intéresserons à une approche heuristique. L'idée sera ici de déterminer une solution proche 
+de l'optimal. 
 
 % ==================================================================================================================================
 % Programmation en nombres entiers
 
 \section{Programmation en nombres entiers}
 
+Pour résoudre le problème de manière exacte, nous avons modélisé le tournoi sous la forme d'un programme linéaire en nombres 
+entiers (PLNE). Cette approche garantit l'obtention de l'optimum global pour les instances de taille raisonnable en explorant 
+l'espace des solutions via l'algorithme de \textit{Branch-and-Bound}.
 
+\paragraph{Variables de décision.}
+Le modèle repose sur une matrice de variables binaires $x_{i,j}$ telle que :
+\begin{itemize}
+    \item $x_{i,j} = 1$ si le combattant $i$ affronte l'hôte $j$, $0$ sinon.
+    \item $c_i \in \{0, 1\}$ : variable binaire indiquant si le combattant $i$ est désigné Capitaine.
+    \item $j_i \in \{0, 1\}$ : variable binaire indiquant si le combattant $i$ possède le Joker.
+\end{itemize}
+
+\paragraph{Objectif et Linéarisation.}
+L'objectif est de maximiser le gain net, incluant les bonus du Capitaine ($+5$ en compétence) et du Joker ($\times 2$ sur les gains et pertes). Pour conserver un modèle linéaire, nous avons utilisé des variables de couplage $actCap_{i,j}$ et $actJok_{i,j}$ pour représenter l'activation des bonus lors d'un combat spécifique.
+L'objectif s'écrit alors :
+\begin{equation}
+    \max \left( \sum_{i,j} \left(g_{i,j} \cdot x_{i,j} + \Delta Cap_{i,j} \cdot actCap_{i,j} + \Delta Jok_{i,j} \cdot actJok_{i,j}\right) - P \cdot \left(n - \sum_{i,j} x_{i,j}\right) \right)
+\end{equation}
+Où $\Delta Cap$ et $\Delta Jok$ représentent les gains incrémentaux apportés par les bonus respectifs.
+
+\paragraph{Contraintes.}
+Les contraintes du modèle assurent la validité de la solution :
+\begin{itemize}
+    \item \emph{Capacité des combattants :} $\sum_{j=1}^{n} x_{i,j} \leqslant 2 - c_i$. Un combattant normal effectue au plus 2 combats, le capitaine au plus 1.
+    \item \emph{Unicité de l'hôte :} $\sum_{i=1}^{p} x_{i,j} \leqslant 1$. Chaque hôte ne peut être combattu qu'une seule fois.
+    \item \emph{Budget énergétique :} $\sum_{j=1}^{n} E_j \cdot (\sum_{i=1}^{p} x_{i,j}) \leqslant B$.
+    \item \emph{Rôles uniques :} $\sum_{i} c_i \leqslant 1$ et $\sum_{i} j_i \leqslant 1$.
+\end{itemize}
+
+\paragraph{Optimisations pour les grandes instances.}
+Pour l'instance \texttt{tournament\_100.txt}, le nombre de variables binaires dépasse les 20 000. Pour réduire le temps de calcul, nous avons implémenté :
+\begin{enumerate}
+    \item \emph{Priorités de branchement :} Nous avons forcé le solveur à brancher en priorité sur les variables $c_i$ et $j_i$ (\texttt{chgVarBranchPriority}), car le choix des rôles structure fortement le reste de la solution.
+    \item \emph{Relâchement du gap :} L'acceptation d'un gap d'optimalité de 5\% permet d'obtenir une solution de haute qualité en quelques secondes là où l'optimum exact requerrait plusieurs heures.
+\end{enumerate}
 
 % ==================================================================================================================================
 % Méta-heuristique
@@ -73,8 +111,7 @@ Pour cela, nous devons définir plusieurs notions telles que le \emph{voisinage}
 ainsi que sa validité. Comme précédemment, le choix des structures de données sera déterminant pour réduire 
 le temps de calcul et pouvoir traiter de grosses instances. 
 
-\subsection{Structures de données}
-
+\paragraph{Structures de données.}
 Commençons par introduire les structures de données utilisées pour modéliser le problème. L'objectif est 
 de trouver une combinaison de combats qui maximise les gains de l'équipe des combattants. On doit donc affecter
 à chacun des $p$ combattants un ou plusieurs des $n$ hôtes. Pour chaque solution possible, nous devons être capables d'évaluer sa 
@@ -119,8 +156,7 @@ L'intérêt de cette approche est que les matrices encodant les données du prob
 de celui-ci et seuls quelques produits matriciels sont utilisés pour l'évaluation. Cependant, pour de très grosses instances 
 du problème, le stockaque de $M$ et $E$ peuvent s'avérer plus contraignant. 
 
-\subsection{Voisinnages}
-
+\paragraph{Voisinnages.}
 Passons maintenant à la définition du voisinnage d'une solution $C$. Trois types de pas ont été implémentés :
 
 \begin{itemize}
@@ -135,8 +171,7 @@ Passons maintenant à la définition du voisinnage d'une solution $C$. Trois typ
 À chaque itération de l'algorithme, un tirage aléatoire entre les différents types de pas est effectué dans la fonction 
 \texttt{get\_neigbor}. Lors que le budget d'énergie est complètement utilisé, le tirage d'un add/drop supprimera un combat. 
 
-\subsection{Capitaine et Joker}
-
+\paragraph{Capitaine et Joker.}
 Grâce aux structures de données utilisées, l'implémentation du Capitaine et du Joker ne requièrent pas beaucoup de 
 modifications. Le Joker assigné à un combattant double les gains/pertes de tous ses combats. Il suffit donc de 
 multiplier par $2$ la ligne de $M$ correspondant au combattant choisit. 
@@ -145,9 +180,47 @@ compétence du capitaine choisi.
 Pour cela, nous choisirons un indice \texttt{captain\_idx} à l'initialisation de la recherche et le Joker 
 sera représenté par un masque ajouté à la matrice $M$ lors de l'évaluation d'une solution. 
 
+Au lieu de fixer le Joker à l'initialisation comme effectué avec le Capitaine, une autre type de pas a été ajouté et 
+permet de simplement changer l'indice du Joker dans la configuration (fonction \texttt{move\_joker}). 
 
+\paragraph{Types de recherche et résultats.}
+Pour approcher des solutions optimales, il a été choisi d'implémenter la recherche locale de type Hill-Climbing ainsi 
+que le recuit simulé. Les résultats présentés en conclusion sont obtenus grâce à l'algorithme de recuit simulé. 
+Celui-ci permet à l'algorithme de ne pas stagner dans les optimums locaux de l'espace de recherche. 
+Pour cela, nous permettons à l'algorithme d'accepter de moins bonnes solutions selon une proportion suivant une 
+loi exponentielle au cours du temps. La marche aléatoire tend donc à se stabiliser sur un optimum global. 
 
-\subsection{La recherche locale}
+% ==================================================================================================================================
+% Conclusion
+
+\section{Conclusion}
+
+Pour conclure, les deux approches de résolution du problème nous ont permis de l'aborder de deux manières 
+complètement différentes. L'approche PLNE nous a forcés à optimiser sa formulation. Cet effort est récompensé par 
+l'obtention de solutions exactes malgré un long temps de calcul. 
+L'approche heuristique, quant à elle, nous a permis de formuler le problème sous forme matricielle plus intuitive permettant 
+d'approcher très finement les solutions exactes des différentes instances plus rapidement. 
+
+Le tableau ci-dessous présente les résultats obtenus pour les différentes instances en fonction de la méthode utilisée :
+
+\begin{center}
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{|l|c|c|c|c|}
+        \hline
+        \textbf{Instance} & \textbf{Méthode} & \textbf{Statut} & \textbf{Valeur} & \textbf{Temps ($\Delta t$)} \\ \hline
+        \hline
+        \multirow{2}{*}{\texttt{tournament\_6.txt}}  & PLNE & Optimal & 2555 & 0.27s \\ \cline{2-5} 
+                                                      & MH   & Approché  & 2550 & 1.077 \\ \hline
+        \hline
+        \multirow{2}{*}{\texttt{tournament\_20.txt}} & PLNE & Optimal & 8422 & 3.75s \\ \cline{2-5} 
+                                                      & MH   & Approché & 8319 & 5.42s \\ \hline
+        \hline
+        \multirow{2}{*}{\texttt{tournament\_100.txt}} & PLNE & Optimal & 38192 & 438.79 \\ \cline{2-5} 
+                                                       & MH   & Approché & 13850 & 15.5s \\ \hline
+    \end{tabular}
+    \captionof{table}{Comparaison des performances PLNE vs Méta-heuristique}
+\end{center}
+
 
 
 
