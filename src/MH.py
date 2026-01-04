@@ -274,22 +274,68 @@ def get_neigbor(C, energy_budget, E, probs, captain_idx=None):
 
 
 # ----------------------------------------------------------------
-#                       Local Search
+#                       Simple Local Search
 # ----------------------------------------------------------------
 
-def local_search_MH(init_C, M, E, P, J, energy_budget, config, nIter, probs, captain_idx=None): 
+def local_search_MH(config, nIter, probs, captain_idx=None, joker_idx=None, verbose=True): 
+    """
+    Perform a local search depending on the config and given 
+    Joker and Captain index. 
+    """
     nHost = config['nHost']
+    energy_budget = config['Budget']
+
+    # Init instance variables
+    init_C, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
     C_values = [get_sol_value(init_C, M, P, J, nHost)]
     C = init_C.copy()
 
+    if verbose: print("Launching simple local search...")
     for _ in range(nIter): 
         new_C = get_neigbor(C, energy_budget, E, probs, captain_idx)
         new_C_value = get_sol_value(new_C, M, P, J, nHost)
-        if new_C_value > get_sol_value(C, M, P, J, nHost): 
-            C = new_C 
+        if new_C_value > get_sol_value(C, M, P, J, nHost):
+            C = new_C
         C_values.append(new_C_value)
     
+    if verbose: 
+        print(f"Best config found with a value : {np.max(C_values)}")
+        plt.plot([i for i in range(0, nIter + 1)], C_values)
+        plt.title("Solutions Values Evolution")
+        plt.xlabel("Iterations")
+        # plt.show()
+
     return C, C_values
+
+
+# ----------------------------------------------------------------
+#                       Captain Local Search
+# ----------------------------------------------------------------
+
+def captain_local_search(config, nIter, joker_idx=None, verbose=True): 
+    C_values_trajs = []
+    C_traj = []
+    nCont = config['nContestant']
+
+    if verbose: print("Launching Captain Local Search...")
+    # Choose a different captain for each starting 
+    for cap in range(nCont): 
+        if verbose: print(f"Processing captain {cap}/{nCont}")
+        sol, sol_values = local_search_MH(config, nIter, probs, cap, joker_idx, False)
+        C_traj.append(sol)
+        C_values_trajs.append(sol_values)
+    
+    if verbose:
+        print(f"Best config found with a value : {np.max(C_values_trajs)}")
+        for cap in range(nCont): 
+            plt.plot([i for i in range(0, nIter + 1)], C_values_trajs[cap], label=f"Captain {cap}")
+        if nCont <= 15: plt.legend()
+        plt.title("Sol Values depending on captain")
+        plt.xlabel("Iterations")
+        plt.ylabel("Solutions Values")
+        # plt.show()
+    
+    return C_values_trajs
 
 # ----------------------------------------------------------------
 #                       Execution
@@ -297,15 +343,14 @@ def local_search_MH(init_C, M, E, P, J, energy_budget, config, nIter, probs, cap
 
 
 config = extract_instance(display = False)
-C, M, E, J, P = init_matrix(config, None, None)
 
-nIter = 500
+nIter = 700
 probs = [0.3, 0.3, 0.4]
-C, C_values = local_search_MH(
-    C, M, E, P, J, config['Budget'], config, nIter, probs, None
-)
+nCont = config['nContestant']
 
-print("Solution Finale : ", C)
-plt.plot([i for i in range(0, nIter + 1)], C_values)
-plt.show()
+for jok in range(nCont):
+    print(f"=> Launching with Joker {jok}/{nCont}")
+    captain_local_search(config, nIter, jok, True)
 
+
+# C, C_values = local_search_MH(config, nIter, probs, None, None, True)

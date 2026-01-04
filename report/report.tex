@@ -7,17 +7,147 @@
 \begin{document}
 
 % ==================================================================================================================================
-% TITLEPAGE 
+% TITLE 
 
-\input{titlepage_report.tex}
+% \input{titlepage_report.tex}
+
+\begin{center}
+    {\scshape {Algorithmique Avancée}} \par \vspace{0.5em}
+    {\Large \textbf{Projet 2 : Tournoi de combats}}
+\end{center}
+
+\vspace{0.5cm}
+
+\raggedright
+Axel PIGEON\\
+\href{mailto:axel.pigeon@univ-tlse3.fr}{axel.pigeon@univ-tlse3.fr}
+
+\begin{center}
+    \begin{minipage}{0.9\textwidth}
+        \small
+        \itshape
+        \hrule
+        \vspace{0.3cm}
+        \textbf{Contexte} Ce projet porte sur la résolution d'un problème d'optimisation combinatoire appliqué à 
+        l'organisation d'un tournoi de combats. L'objectif est de maximiser le gain net d'une équipe de combattants 
+        opposée à une équipe d'hôtes, sous des contraintes strictes de ressources et de capacités. Le modèle intègre 
+        une gestion de budget énergétique global, des pénalités pour les combats évités, ainsi que des mécanismes 
+        stratégiques tels que la désignation d'un capitaine (bénéficiant d'un bonus de compétence) ou l'usage d'une 
+        carte "Joker" (doublant les enjeux). 
+        
+        La problématique réside dans l'appariement optimal des duels, où chaque combattant dispose d'un nombre limité 
+        d'actions et chaque hôte possède des valeurs de profit et de perte distinctes. Ce rapport détaille l'approche 
+        algorithmique choisie, les structures de données mises en œuvre pour traiter les instances du problème, ainsi 
+        que l'analyse de la complexité de notre solution face à l'explosion des combinaisons possibles.
+        \vspace{0.3cm}
+        \hrule
+    \end{minipage}
+\end{center}
+\vspace{1cm}
+
+\tableofcontents
 
 % ==================================================================================================================================
 % Introduction 
 
 \justify
-\newpage 
 \subsection{Introduction}
 
+% ==================================================================================================================================
+% Programmation en nombres entiers
+
+\section{Programmation en nombres entiers}
+
+
+
+% ==================================================================================================================================
+% Méta-heuristique
+
+\section{Méta-heuristique}
+
+Dans cette section, nous essayons d'approcher une solution optimale au problème sous la forme d'une 
+méta-heuristique. Contrairement à la recherche exhaustive précédente, nous n'essayons pas de considérer 
+toutes les solutions possibles, nous simulons plutôt une marche aléatoire sur l'ensemble des solutions 
+possibles en essayant de trouver un maximum. 
+Pour cela, nous devons définir plusieurs notions telles que le \emph{voisinage} d'une solution, la valeur 
+ainsi que sa validité. Comme précédemment, le choix des structures de données sera déterminant pour réduire 
+le temps de calcul et pouvoir traiter de grosses instances. 
+
+\subsection{Structures de données}
+
+Commençons par introduire les structures de données utilisées pour modéliser le problème. L'objectif est 
+de trouver une combinaison de combats qui maximise les gains de l'équipe des combattants. On doit donc affecter
+à chacun des $p$ combattants un ou plusieurs des $n$ hôtes. Pour chaque solution possible, nous devons être capables d'évaluer sa 
+valeur très rapidement. Il nous semble donc judicieux de vectoriser toutes les données du problème pour n'avoir qu'à effectuer 
+que des produits matriciels pour l'évaluation et la vérification. Nous avons donc : 
+
+\begin{itemize} 
+    \item $C$ : La matrice représentant une solution au problème telle que $(i,j) = 1$ ssi le combattant $i$ affronte 
+    l'hôte $j$ et $0$ sinon.
+    \item $E$ : Un vecteur qui représente l'énergie nécessaire pour combattre chacun des $n$ hôtes.
+    \item $W$ : Une matrice représentant le gain possible de chaque combat, $(i,j) = W_j$ si le combattant $i$ bat 
+    l'hôte $j$ lors d'un combat. 
+    \item $L$ : Une matrice représentant la perte de possible de chaque combat, $(i,j) = L_j$ si le combattant $i$ 
+    est battu par l'hôte $j$. 
+    \item $M$ : La matrice des gains bruts pour chaque combat possible. 
+\end{itemize}
+
+$M$ se calcule très simplement par $ M = W - L$. 
+On remarque donc que pour évaluer le gain brut d'un combat (sans pénalités), il suffit d'évaluer : 
+    $$ \sum_{j=1}^{n} \sum_{i=1}^{p} C \odot M $$ 
+où $\odot$ est la multiplication termes à termes des deux matrices. On a donc : 
+    \begin{align}
+        Tr (^t C M)_{i,j} = \sum_{j=1}^{n} \sum_{i=1}^{p} C_{i,j} M_{i,j} = \sum_{j=1}^{n} \sum_{i=1}^{p} C \odot M
+    \end{align}
+D'autre part, pour calculer le coût total en énergie d'une configuration $C$, il suffit aussi d'effectuer :
+    \begin{equation}
+        \sum_{j=1}^{n} (C \times E).
+    \end{equation}
+Nous effectuons ce calcul grâce à la fonction \texttt{get\_energy\_value}.
+Enfin, pour déterminer la valeur de la pénalité à soustraire au gain de chaque configuration, nous devons 
+compter le nombre d'attaquants combattus par hôtes. Soit $P$ la pénalité définie par l'instance, on a donc :
+    \begin{equation}
+        P_{totale} = P \times \left(n - \sum_{j=1}^{n} \max_i C_{i,j}\right)
+    \end{equation}
+Finalement, le gain net $V$ d'une configuration peut être calculé par la formule suivante : 
+    \begin{equation}
+        V = Tr(^t C M) - P \times \left(n - \sum_{j=1}^{n} \max_i C_{i,j}\right)
+    \end{equation}
+Ce calcul est effectué dans \texttt{get\_sol\_value}. La bibliothèque \texttt{numpy} est utilisée pour tous 
+les calculs matriciels et les opérations de recherche sur les lignes/colonnes de la matrice $C$. 
+L'intérêt de cette approche est que les matrices encodant les données du problème sont calculées à l'initialisation 
+de celui-ci et seuls quelques produits matriciels sont utilisés pour l'évaluation. Cependant, pour de très grosses instances 
+du problème, le stockaque de $M$ et $E$ peuvent s'avérer plus contraignant. 
+
+\subsection{Voisinnages}
+
+Passons maintenant à la définition du voisinnage d'une solution $C$. Trois types de pas ont été implémentés :
+
+\begin{itemize}
+    \item \textbf{L'échange d'hôte} (\texttt{moove\_swap\_host}) : qui consiste à changer l'hôte combattu par un hôte non combattu pour un attaquant $i$.
+    Ce pas permet de tester le combat avec différents hôtes pour un même combattant. 
+    \item \textbf{Le transfert d'hôte} (\texttt{moove\_shift\_contestant}) : qui consiste à transférer un hôte combattu à un autre combattant encore libre qui 
+    permet de libérer des combattants. 
+    \item \textbf{L'ajout/la suppression de combat} (\texttt{moove\_add\_drop}) : cela permet de complémter le nombre de combats pour utiliser 
+    tout le budget d'énergie possible. 
+\end{itemize}
+
+À chaque itération de l'algorithme, un tirage aléatoire entre les différents types de pas est effectué dans la fonction 
+\texttt{get\_neigbor}. Lors que le budget d'énergie est complètement utilisé, le tirage d'un add/drop supprimera un combat. 
+
+\subsection{Capitaine et Joker}
+
+Grâce aux structures de données utilisées, l'implémentation du Capitaine et du Joker ne requièrent pas beaucoup de 
+modifications. Le Joker assigné à un combattant double les gains/pertes de tous ses combats. Il suffit donc de 
+multiplier par $2$ la ligne de $M$ correspondant au combattant choisit. 
+De même pour le capitaine, lors de la construction des matrices $W$ et $L$, il suffit d'additionner $5$ au niveau de 
+compétence du capitaine choisi. 
+Pour cela, nous choisirons un indice \texttt{captain\_idx} à l'initialisation de la recherche et le Joker 
+sera représenté par un masque ajouté à la matrice $M$ lors de l'évaluation d'une solution. 
+
+
+
+\subsection{La recherche locale}
 
 
 
