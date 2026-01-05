@@ -2,6 +2,9 @@
 #                                         PLNE Solving 
 # ======================================================================================================
 
+# Parameters are fixed at the end of the file. 
+# To launch and test the code, you just need to change the instance folder path 
+# given below and type 'python3 PLNE.py name-of-tournament-file'.
 
 from pyscipopt import Model
 from pyscipopt import quicksum
@@ -10,12 +13,12 @@ import numpy as np
 import sys
 import os
 
+SOURCE_FOLDER = "src/instances/"
+ARG = sys.argv[1]
+
 # ----------------------------------------------------------------
 #                   Extracting Instance
 # ----------------------------------------------------------------
-
-SOURCE_FOLDER = "src/instances/"
-ARG = sys.argv[1]
 
 # Testing args 
 FILE_PATH = SOURCE_FOLDER + ARG 

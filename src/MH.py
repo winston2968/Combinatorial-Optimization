@@ -3,6 +3,10 @@
 # ======================================================================================================
 
 
+# Parameters are fixed at the end of the file. 
+# To launch and test the code, you just need to change the instance folder path 
+# given below and type 'python3 MH.py name-of-tournament-file'.
+
 import time 
 import sys 
 import os 
