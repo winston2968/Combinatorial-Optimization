@@ -369,7 +369,7 @@ def captain_local_search(config, nIter, probs, joker_idx=None, verbose=True):
 #                    Simulated Annealing
 # ----------------------------------------------------------------
 
-def simulated_annealing(config, nIter, probs, T_start=100, cooling_rate=0.99, captain_idx=None, joker_idx=None):
+def simulated_annealing(C, config, nIter, probs, T_start=100, cooling_rate=0.99, captain_idx=None, joker_idx=None):
     """
     Implement the simulated annealing to pass throught 
     local optimum. 
@@ -379,7 +379,7 @@ def simulated_annealing(config, nIter, probs, T_start=100, cooling_rate=0.99, ca
     traj = []
 
     # Initialization
-    C, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
+    _, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
     current_value = get_sol_value(C, M, P, J, nHost)
     best_C, best_J = C.copy(), J.copy()
     best_value = current_value
@@ -422,6 +422,50 @@ def simulated_annealing(config, nIter, probs, T_start=100, cooling_rate=0.99, ca
 
     return best_C, best_J, C_values, t2 - t1, traj
 
+
+def greedy_sol_init(config, captain_idx, joker_idx): 
+    """
+    Init C matrix with fight which max the sol 
+    value. 
+    """
+
+    # Init matrix 
+    C, M, E, J, P = init_matrix(config, captain_idx, joker_idx)
+    energy_budget = config['Budget']
+    nCont, nHost = M.shape
+    
+    # Process ratio Gain / Energy for each fight
+    gains = M * J
+    costs = E.flatten()
+    ratios = gains / (costs + 1e-9)
+
+    # Create an array for all possible fight and sort it 
+    # by ratio
+    all_fights = []
+    for i in range(nCont):
+        for j in range(nHost):
+            if ratios[i, j] > 0:
+                all_fights.append((i, j, ratios[i, j]))
+
+    all_fights.sort(key=lambda x: x[2], reverse=True)
+
+    # Greedy fill-in 
+    current_energy = 0
+    for cont, host, ratio in all_fights:
+        host_cost = costs[host]
+        
+        # Check budget
+        if current_energy + host_cost <= energy_budget:
+            if np.sum(C[:, host]) == 0:
+                limit = 1 if cont == captain_idx else 2
+                if np.sum(C[cont, :]) < limit:
+                    C[cont, host] = 1
+                    current_energy += host_cost
+                    
+    return C
+                        
+
+
 # ----------------------------------------------------------------
 #                       Execution
 # ----------------------------------------------------------------
@@ -429,19 +473,21 @@ def simulated_annealing(config, nIter, probs, T_start=100, cooling_rate=0.99, ca
 
 config = extract_instance(display = False)
 
-nIter = 2000
+nIter = 1000
 probs = [0.3, 0.6, 0.9]
 nCont = config['nContestant']
 nHost = config['nHost']
 T_start = 100
 cooling_rate = 0.99
+joker_idx = 0
 
 sols = {}
 deltaT = 0
 for cap in range(nCont): 
     print(f"=> Launching Simulated Annealing for captain {cap+1}/{nCont}")
-    best_C, best_J, C_values, sub_time, traj = simulated_annealing(config, nIter, probs, T_start, cooling_rate, cap, 0)
-    sols[float(np.max(C_values))] = best_C 
+    C = greedy_sol_init(config, cap, joker_idx)
+    best_C, best_J, C_values, sub_time, traj = simulated_annealing(C, config, nIter, probs, T_start, cooling_rate, cap, joker_idx)
+    sols[float(np.max(C_values))] = best_C
     deltaT += sub_time
 
 print(f"Best value found : {max(sols.keys())}")

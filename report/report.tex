@@ -28,7 +28,7 @@ Axel PIGEON\\
         \itshape
         \hrule
         \vspace{0.3cm}
-        \textbf{Contexte} Ce projet porte sur la résolution d'un problème d'optimisation combinatoire appliqué à 
+        \textbf{Contexte --- } Ce projet porte sur la résolution d'un problème d'optimisation combinatoire appliqué à 
         l'organisation d'un tournoi de combats. L'objectif est de maximiser le gain net d'une équipe de combattants 
         opposée à une équipe d'hôtes, sous des contraintes strictes de ressources et de capacités. Le modèle intègre 
         une gestion de budget énergétique global, des pénalités pour les combats évités, ainsi que des mécanismes 
@@ -55,16 +55,17 @@ Nous détaillons ici deux méthodes utilisées pour la résolution de différent
 6, 20 et 100 combattants. Nous nous intéressons d'abord à la résolution grâce au solveur SCIP en modélisant le problème sous 
 forme de Programme Linéaire en Nombres Entiers. Cette approche nous permettra d'obtenir des solutions optimales. 
 Dans un second temps, nous nous intéresserons à une approche heuristique. L'idée sera ici de déterminer une solution proche 
-de l'optimal. 
+de l'optimal grâce à une marche aléatoire type recuit simulé sur l'ensemble des solutions.
 
 % ==================================================================================================================================
 % Programmation en nombres entiers
 
 \section{Programmation en nombres entiers}
 
-Pour résoudre le problème de manière exacte, nous avons modélisé le tournoi sous la forme d'un programme linéaire en nombres 
-entiers (PLNE). Cette approche garantit l'obtention de l'optimum global pour les instances de taille raisonnable en explorant 
-l'espace des solutions via l'algorithme de \textit{Branch-and-Bound}.
+Pour résoudre le problème de manière exacte, nous avons modélisé le tournoi sous la forme d'un \emph{Programme Linéaire en Nombres 
+Entiers (PLNE)}. Cette approche garantit l'obtention de l'optimum global pour les instances de taille raisonnable en explorant 
+l'ensemble des solutions possibles via l'algorithme de \textit{Branch-and-Bound}. La version du problème résolut ici 
+est celle comportant les rôles de Capitaine et de Joker. 
 
 \paragraph{Variables de décision.}
 Le modèle repose sur une matrice de variables binaires $x_{i,j}$ telle que :
@@ -73,6 +74,7 @@ Le modèle repose sur une matrice de variables binaires $x_{i,j}$ telle que :
     \item $c_i \in \{0, 1\}$ : variable binaire indiquant si le combattant $i$ est désigné Capitaine.
     \item $j_i \in \{0, 1\}$ : variable binaire indiquant si le combattant $i$ possède le Joker.
 \end{itemize}
+La matrice $(g_{i,j})$ représente le gain brut de chaque combat calculé en amont de la résolution. 
 
 \paragraph{Objectif et Linéarisation.}
 L'objectif est de maximiser le gain net, incluant les bonus du Capitaine ($+5$ en compétence) et du Joker ($\times 2$ sur les gains et pertes). Pour conserver un modèle linéaire, nous avons utilisé des variables de couplage $actCap_{i,j}$ et $actJok_{i,j}$ pour représenter l'activation des bonus lors d'un combat spécifique.
@@ -80,7 +82,8 @@ L'objectif s'écrit alors :
 \begin{equation}
     \max \left( \sum_{i,j} \left(g_{i,j} \cdot x_{i,j} + \Delta Cap_{i,j} \cdot actCap_{i,j} + \Delta Jok_{i,j} \cdot actJok_{i,j}\right) - P \cdot \left(n - \sum_{i,j} x_{i,j}\right) \right)
 \end{equation}
-Où $\Delta Cap$ et $\Delta Jok$ représentent les gains incrémentaux apportés par les bonus respectifs.
+Où $\Delta Cap$ et $\Delta Jok$ représentent les gains incrémentaux apportés par les bonus respectifs et $P$ 
+est la pénalité déduite pour chacun des $n$ hôtes non combattu.
 
 \paragraph{Contraintes.}
 Les contraintes du modèle assurent la validité de la solution :
@@ -95,7 +98,7 @@ Les contraintes du modèle assurent la validité de la solution :
 Pour l'instance \texttt{tournament\_100.txt}, le nombre de variables binaires dépasse les 20 000. Pour réduire le temps de calcul, nous avons implémenté :
 \begin{enumerate}
     \item \emph{Priorités de branchement :} Nous avons forcé le solveur à brancher en priorité sur les variables $c_i$ et $j_i$ (\texttt{chgVarBranchPriority}), car le choix des rôles structure fortement le reste de la solution.
-    \item \emph{Relâchement du gap :} L'acceptation d'un gap d'optimalité de 5\% permet d'obtenir une solution de haute qualité en quelques secondes là où l'optimum exact requerrait plusieurs heures.
+    \item \emph{Relâchement de la précision :} L'acceptation d'une précision d'optimalité de 5\% permet d'obtenir une solution de haute qualité en quelques secondes là où l'optimum exact requerrait plusieurs heures.
 \end{enumerate}
 
 % ==================================================================================================================================
@@ -106,9 +109,9 @@ Pour l'instance \texttt{tournament\_100.txt}, le nombre de variables binaires d�
 Dans cette section, nous essayons d'approcher une solution optimale au problème sous la forme d'une 
 méta-heuristique. Contrairement à la recherche exhaustive précédente, nous n'essayons pas de considérer 
 toutes les solutions possibles, nous simulons plutôt une marche aléatoire sur l'ensemble des solutions 
-possibles en essayant de trouver un maximum. 
-Pour cela, nous devons définir plusieurs notions telles que le \emph{voisinage} d'une solution, la valeur 
-ainsi que sa validité. Comme précédemment, le choix des structures de données sera déterminant pour réduire 
+en essayant de trouver un maximum. 
+Pour cela, nous devons définir plusieurs notions telles que le \emph{voisinage} d'une solution, sa \emph{valeur} 
+ainsi que sa \emph{validité}. Comme précédemment, le choix des structures de données sera déterminant pour réduire 
 le temps de calcul et pouvoir traiter de grosses instances. 
 
 \paragraph{Structures de données.}
@@ -116,7 +119,7 @@ Commençons par introduire les structures de données utilisées pour modéliser
 de trouver une combinaison de combats qui maximise les gains de l'équipe des combattants. On doit donc affecter
 à chacun des $p$ combattants un ou plusieurs des $n$ hôtes. Pour chaque solution possible, nous devons être capables d'évaluer sa 
 valeur très rapidement. Il nous semble donc judicieux de vectoriser toutes les données du problème pour n'avoir qu'à effectuer 
-que des produits matriciels pour l'évaluation et la vérification. Nous avons donc : 
+des produits matriciels pour l'évaluation et la vérification. Nous avons donc : 
 
 \begin{itemize} 
     \item $C$ : La matrice représentant une solution au problème telle que $(i,j) = 1$ ssi le combattant $i$ affronte 
@@ -160,16 +163,17 @@ du problème, le stockaque de $M$ et $E$ peuvent s'avérer plus contraignant.
 Passons maintenant à la définition du voisinnage d'une solution $C$. Trois types de pas ont été implémentés :
 
 \begin{itemize}
-    \item \textbf{L'échange d'hôte} (\texttt{moove\_swap\_host}) : qui consiste à changer l'hôte combattu par un hôte non combattu pour un attaquant $i$.
-    Ce pas permet de tester le combat avec différents hôtes pour un même combattant. 
-    \item \textbf{Le transfert d'hôte} (\texttt{moove\_shift\_contestant}) : qui consiste à transférer un hôte combattu à un autre combattant encore libre qui 
-    permet de libérer des combattants. 
-    \item \textbf{L'ajout/la suppression de combat} (\texttt{moove\_add\_drop}) : cela permet de complémter le nombre de combats pour utiliser 
+    \item \emph{L'échange d'hôte} (\texttt{moove\_swap\_host}) : qui consiste à changer l'hôte combattu par un hôte non combattu pour un attaquant $i$.
+    Ce pas permet de tester un combattant avec différents hôtes pour maximiser le gain.
+    \item \emph{Le transfert d'hôte} (\texttt{moove\_shift\_contestant}) : qui consiste à transférer un hôte combattu à un autre combattant encore libre.  
+    On libère ainsi combattants pour optimiser l'utilisation du budget. 
+    \item \emph{L'ajout/la suppression de combat} (\texttt{moove\_add\_drop}) : cela permet de compléter le nombre de combats pour utiliser 
     tout le budget d'énergie possible. 
 \end{itemize}
 
 À chaque itération de l'algorithme, un tirage aléatoire entre les différents types de pas est effectué dans la fonction 
-\texttt{get\_neigbor}. Lors que le budget d'énergie est complètement utilisé, le tirage d'un add/drop supprimera un combat. 
+\texttt{get\_neigbor}. Lors que le budget d'énergie est complètement utilisé, le tirage d'un add/drop supprimera systématiquement 
+un combat. 
 
 \paragraph{Capitaine et Joker.}
 Grâce aux structures de données utilisées, l'implémentation du Capitaine et du Joker ne requièrent pas beaucoup de 
@@ -180,7 +184,7 @@ compétence du capitaine choisi.
 Pour cela, nous choisirons un indice \texttt{captain\_idx} à l'initialisation de la recherche et le Joker 
 sera représenté par un masque ajouté à la matrice $M$ lors de l'évaluation d'une solution. 
 
-Au lieu de fixer le Joker à l'initialisation comme effectué avec le Capitaine, une autre type de pas a été ajouté et 
+Au lieu de fixer le Joker à l'initialisation comme effectué avec le Capitaine, un autre type de pas a été ajouté et 
 permet de simplement changer l'indice du Joker dans la configuration (fonction \texttt{move\_joker}). 
 
 \paragraph{Types de recherche et résultats.}
@@ -216,7 +220,7 @@ Le tableau ci-dessous présente les résultats obtenus pour les différentes ins
                                                       & MH   & Approché & 8319 & 5.42s \\ \hline
         \hline
         \multirow{2}{*}{\texttt{tournament\_100.txt}} & PLNE & Optimal & 38192 & 438.79 \\ \cline{2-5} 
-                                                       & MH   & Approché & 13850 & 15.5s \\ \hline
+                                                       & MH   & Approché & 25912 & 176.93 \\ \hline
     \end{tabular}
     \captionof{table}{Comparaison des performances PLNE vs Méta-heuristique}
 \end{center}
