@@ -19,8 +19,7 @@
 \vspace{0.5cm}
 
 \raggedright
-Axel PIGEON\\
-\href{mailto:axel.pigeon@univ-tlse3.fr}{axel.pigeon@univ-tlse3.fr}
+Axel PIGEON -- \href{mailto:axel.pigeon@univ-tlse3.fr}{axel.pigeon@univ-tlse3.fr}
 
 \begin{center}
     \begin{minipage}{0.9\textwidth}
@@ -43,7 +42,7 @@ Axel PIGEON\\
         \hrule
     \end{minipage}
 \end{center}
-\vspace{1cm}
+
 
 % ==================================================================================================================================
 % Introduction 
@@ -139,9 +138,9 @@ où $\odot$ est la multiplication termes à termes des deux matrices. On a donc 
     \begin{align}
         Tr (^t C M)_{i,j} = \sum_{j=1}^{n} \sum_{i=1}^{p} C_{i,j} M_{i,j} = \sum_{j=1}^{n} \sum_{i=1}^{p} C \odot M
     \end{align}
-D'autre part, pour calculer le coût total en énergie d'une configuration $C$, il suffit aussi d'effectuer :
+D'autre part, pour calculer le coût total en énergie $E_\text{totale}$ d'une configuration $C$, il suffit aussi d'effectuer :
     \begin{equation}
-        \sum_{j=1}^{n} (C \times E).
+        E_\text{totale} = \; ^t 1_p (C \times E).
     \end{equation}
 Nous effectuons ce calcul grâce à la fonction \texttt{get\_energy\_value}.
 Enfin, pour déterminer la valeur de la pénalité à soustraire au gain de chaque configuration, nous devons 
@@ -159,6 +158,14 @@ L'intérêt de cette approche est que les matrices encodant les données du prob
 de celui-ci et seuls quelques produits matriciels sont utilisés pour l'évaluation. Cependant, pour de très grosses instances 
 du problème, le stockaque de $M$ et $E$ peuvent s'avérer plus contraignant. 
 
+\paragraph{Capitaine et Joker.}
+Grâce aux structures de données utilisées, l'implémentation du Capitaine et du Joker ne requièrent pas beaucoup de 
+modifications. Le Joker assigné à un combattant double les gains/pertes de tous ses combats. Il suffit donc de 
+multiplier par $2$ la ligne de $M$ correspondant au combattant choisit. Cela se traduira par l'ajout d'un masque 
+$J$ à l'évaluation de la solution. 
+De même pour le capitaine, lors de la construction des matrices $W$ et $L$, il suffit d'additionner $5$ au niveau de 
+compétence du capitaine choisi. 
+
 \paragraph{Voisinnages.}
 Passons maintenant à la définition du voisinnage d'une solution $C$. Trois types de pas ont été implémentés :
 
@@ -169,31 +176,52 @@ Passons maintenant à la définition du voisinnage d'une solution $C$. Trois typ
     On libère ainsi combattants pour optimiser l'utilisation du budget. 
     \item \emph{L'ajout/la suppression de combat} (\texttt{moove\_add\_drop}) : cela permet de compléter le nombre de combats pour utiliser 
     tout le budget d'énergie possible. 
+    \item \emph{Le changement de capitaine} (\texttt{move\_captain})
+    \item \emph{Le changement de Joker} (\texttt{move\_joker})
 \end{itemize}
 
 À chaque itération de l'algorithme, un tirage aléatoire entre les différents types de pas est effectué dans la fonction 
 \texttt{get\_neigbor}. Lors que le budget d'énergie est complètement utilisé, le tirage d'un add/drop supprimera systématiquement 
 un combat. 
-
-\paragraph{Capitaine et Joker.}
-Grâce aux structures de données utilisées, l'implémentation du Capitaine et du Joker ne requièrent pas beaucoup de 
-modifications. Le Joker assigné à un combattant double les gains/pertes de tous ses combats. Il suffit donc de 
-multiplier par $2$ la ligne de $M$ correspondant au combattant choisit. 
-De même pour le capitaine, lors de la construction des matrices $W$ et $L$, il suffit d'additionner $5$ au niveau de 
-compétence du capitaine choisi. 
-Pour cela, nous choisirons un indice \texttt{captain\_idx} à l'initialisation de la recherche et le Joker 
-sera représenté par un masque ajouté à la matrice $M$ lors de l'évaluation d'une solution. 
-
-Au lieu de fixer le Joker à l'initialisation comme effectué avec le Capitaine, un autre type de pas a été ajouté et 
-permet de simplement changer l'indice du Joker dans la configuration (fonction \texttt{move\_joker}). 
+L'équilibrage des probabilités donne une priorité élevée au \textit{Swap} (35\%) pour stabiliser la consommation énergétique 
+tout en cherchant l'optimum local, tandis que les mutations de rôles (Joker/Capitaine) sont limitées à 10\% du temps 
+pour assurer la convergence de l'algorithme.
 
 \paragraph{Types de recherche et résultats.}
 Pour approcher des solutions optimales, il a été choisi d'implémenter la recherche locale de type Hill-Climbing ainsi 
-que le recuit simulé. Les résultats présentés en conclusion sont obtenus grâce à l'algorithme de recuit simulé. 
+que le recuit simulé.
 Celui-ci permet à l'algorithme de ne pas stagner dans les optimums locaux de l'espace de recherche. 
 Pour cela, nous permettons à l'algorithme d'accepter de moins bonnes solutions selon une proportion suivant une 
 loi exponentielle au cours du temps. La marche aléatoire tend donc à se stabiliser sur un optimum global. 
+De plus, la configuration initiale $C$ est initialisée à l'aide d'un algorithme de recherche gloutonne qui définit 
+des combats dont le rapport gain/coût énergétique est maximum pour chaque hôte. Cela permet à l'algorihtme de recuit simulé 
+de directement chercher un optimum sans passer beaucoup de temps à remplir la matrice. 
 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/evolution_tournament_20_2.png}
+        \caption{Courbe de convergence du Recuit Simulé (\texttt{tournament\_20.txt})}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/evolution_tournament_100_1.png}
+        \caption{Courbe de convergence du Recuit Simulé (\texttt{tournament\_100.txt})}
+    \end{subfigure}
+\end{figure}
+
+Les figures révèlent un comportement contre-intuitif du recuit simulé suite à l'initialisation gloutonne. On observe 
+une dégradation immédiate de la valeur de la solution dans les premières itérations. 
+Ce phénomène s'explique par la température initiale élevée qui favorise l'exploration au détriment de l'exploitation 
+de la solution gloutonne. L'algorithme se "désengage" du maximum local trouvé par le glouton pour explorer l'espace, 
+avant de converger vers un optimum global supérieur. Ainsi, si le glouton ne réduit pas le temps de convergence 
+immédiat, il garantit à l'algorithme une présence dans une zone de l'espace de recherche à fort potentiel dès le 
+lancement.
+
+On remarque aussi l'efficacite de l'algorithme du recuit simulé qui est bien capable d'éviter les optima locaux 
+au profit des optima globaux. 
 % ==================================================================================================================================
 % Conclusion
 
@@ -202,8 +230,8 @@ loi exponentielle au cours du temps. La marche aléatoire tend donc à se stabil
 Pour conclure, les deux approches de résolution du problème nous ont permis de l'aborder de deux manières 
 complètement différentes. L'approche PLNE nous a forcés à optimiser sa formulation. Cet effort est récompensé par 
 l'obtention de solutions exactes malgré un long temps de calcul. 
-L'approche heuristique, quant à elle, nous a permis de formuler le problème sous forme matricielle plus intuitive permettant 
-d'approcher très finement les solutions exactes des différentes instances plus rapidement. 
+L'approche heuristique, quant à elle, nous a permis de formuler le problème sous forme matricielle plus intuitive. Elle nous a permis 
+d'approcher très finement les solutions exactes des différentes instances beaucoup plus rapidement. 
 
 Le tableau ci-dessous présente les résultats obtenus pour les différentes instances en fonction de la méthode utilisée :
 
@@ -214,13 +242,13 @@ Le tableau ci-dessous présente les résultats obtenus pour les différentes ins
         \textbf{Instance} & \textbf{Méthode} & \textbf{Statut} & \textbf{Valeur} & \textbf{Temps ($\Delta t$)} \\ \hline
         \hline
         \multirow{2}{*}{\texttt{tournament\_6.txt}}  & PLNE & Optimal & 2555 & 0.27s \\ \cline{2-5} 
-                                                      & MH   & Approché  & 2550 & 1.077 \\ \hline
+                                                      & MH + Glouton   & Approché  & 2550 & 0.23 \\ \hline
         \hline
         \multirow{2}{*}{\texttt{tournament\_20.txt}} & PLNE & Optimal & 8422 & 3.75s \\ \cline{2-5} 
-                                                      & MH   & Approché & 8319 & 5.42s \\ \hline
+                                                      & MH + Glouton & Approché & 8279 & 0.72s \\ \hline
         \hline
         \multirow{2}{*}{\texttt{tournament\_100.txt}} & PLNE & Optimal & 38192 & 438.79 \\ \cline{2-5} 
-                                                       & MH   & Approché & 25912 & 176.93 \\ \hline
+                                                       & MH + Glouton & Approché & 37548 & 10.54 \\ \hline
     \end{tabular}
     \captionof{table}{Comparaison des performances PLNE vs Méta-heuristique}
 \end{center}
