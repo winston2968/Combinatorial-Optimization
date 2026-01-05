@@ -266,6 +266,24 @@ def move_joker(J):
     new_J[new_joker_idx] = 2
     return new_J, new_joker_idx
 
+def move_captain(C, current_captain_idx):
+    """
+    Moove captain and verify that his nb of fight is respected. 
+    """
+    n_cont = C.shape[0]
+    # Choose a new different captain
+    new_captain_idx = np.random.choice([i for i in range(n_cont) if i != current_captain_idx])
+    
+    new_C = C.copy()
+    # Check if the new captain has more fight 
+    fights = np.where(new_C[new_captain_idx] == 1)[0]
+    if len(fights) > 1:
+        # Delete a random fight to respect the limit of 1
+        drop_idx = np.random.choice(fights)
+        new_C[new_captain_idx, drop_idx] = 0
+        
+    return new_C, new_captain_idx
+
 
 def get_neigbor(C, J, energy_budget, E, probs, captain_idx=None):
     """
@@ -277,15 +295,17 @@ def get_neigbor(C, J, energy_budget, E, probs, captain_idx=None):
     """
     u = npr.rand()
     if u <= probs[0]: 
-        return move_swap_host(C, E, energy_budget), J
+        return move_swap_host(C, E, energy_budget), J, captain_idx
     elif u <= probs[1]: 
-        return move_shift_contestant(C, captain_idx), J
+        return move_shift_contestant(C, captain_idx), J, captain_idx
     elif u <= probs[2]:
-        return move_add_drop(C, E, energy_budget, captain_idx), J
-    else:
+        return move_add_drop(C, E, energy_budget, captain_idx), J, captain_idx
+    elif u <= probs[3]: 
         new_J, _ = move_joker(J)
-        return C, new_J
-
+        return C, new_J, captain_idx
+    else: 
+        new_C, new_cap = move_captain(C, captain_idx)
+        return new_C, J, new_cap
 
 # ----------------------------------------------------------------
 #                       Simple Local Search
@@ -311,7 +331,7 @@ def local_search_MH(config, nIter, probs, captain_idx=None, joker_idx=None, verb
     t1 = time.time()
     for _ in range(nIter): 
         # Get a neighbor (could be a change in C or a change in J)
-        new_C, new_J = get_neigbor(C, J, energy_budget, E, probs, captain_idx)
+        new_C, new_J, new_cap = get_neigbor(C, J, energy_budget, E, probs, captain_idx)
         
         # Calculate the score of this new state (New C AND New J)
         new_value = get_sol_value(new_C, M, P, new_J, nHost)
@@ -320,6 +340,7 @@ def local_search_MH(config, nIter, probs, captain_idx=None, joker_idx=None, verb
         if new_value >= current_value:
             C = new_C
             J = new_J
+            captain_idx = new_cap
             current_value = new_value
             
         C_values.append(current_value) # Track the best score so far
@@ -372,7 +393,7 @@ def captain_local_search(config, nIter, probs, joker_idx=None, verbose=True):
 def simulated_annealing(C, config, nIter, probs, T_start=100, cooling_rate=0.99, captain_idx=None, joker_idx=None):
     """
     Implement the simulated annealing to pass throught 
-    local optimum. 
+    local optimum.
     """
     nHost = config['nHost']
     energy_budget = config['Budget']
@@ -389,9 +410,10 @@ def simulated_annealing(C, config, nIter, probs, T_start=100, cooling_rate=0.99,
 
     t1 = time.time()
 
+    print("=> Launching Simulated Annealing...")
     for _ in range(nIter):
         # Get a neighbor
-        new_C, new_J = get_neigbor(C, J, energy_budget, E, probs, captain_idx)
+        new_C, new_J, new_cap = get_neigbor(C, J, energy_budget, E, probs, captain_idx)
         new_value = get_sol_value(new_C, M, P, new_J, nHost)
         traj.append(new_value)
         
@@ -400,7 +422,7 @@ def simulated_annealing(C, config, nIter, probs, T_start=100, cooling_rate=0.99,
         
         # If better, we accept. If worse, we accept with a probability
         if delta > 0:
-            C, J = new_C, new_J
+            C, J, captain_idx = new_C, new_J, new_cap
             current_value = new_value
         else:
             # Simulated Annealing process
@@ -420,7 +442,10 @@ def simulated_annealing(C, config, nIter, probs, T_start=100, cooling_rate=0.99,
         T *= cooling_rate
     t2 = time.time()
 
-    return best_C, best_J, C_values, t2 - t1, traj
+    print(f"Best value found : {best_value}")
+    print(f"Executing time : {t2 - t1}s")
+
+    return best_C, best_J, C_values, t2 - t1, traj, captain_idx
 
 
 def greedy_sol_init(config, captain_idx, joker_idx): 
@@ -473,24 +498,22 @@ def greedy_sol_init(config, captain_idx, joker_idx):
 
 config = extract_instance(display = False)
 
-nIter = 1000
-probs = [0.3, 0.6, 0.9]
+nIter = 2000
+probs = [0.35, 0.6, 0.9, 0.95]
 nCont = config['nContestant']
 nHost = config['nHost']
 T_start = 100
 cooling_rate = 0.99
 joker_idx = 0
+captain_idx = 0 
 
 sols = {}
 deltaT = 0
-for cap in range(nCont): 
-    print(f"=> Launching Simulated Annealing for captain {cap+1}/{nCont}")
-    C = greedy_sol_init(config, cap, joker_idx)
-    best_C, best_J, C_values, sub_time, traj = simulated_annealing(C, config, nIter, probs, T_start, cooling_rate, cap, joker_idx)
-    sols[float(np.max(C_values))] = best_C
-    deltaT += sub_time
+C = greedy_sol_init(config, captain_idx, joker_idx)
+best_C, best_J, C_values, sub_time, traj, captain_idx = simulated_annealing(C, config, nIter, probs, T_start, cooling_rate, captain_idx, joker_idx)
 
-print(f"Best value found : {max(sols.keys())}")
-print(f"Executing time : {deltaT}s")
-
-# _, _  = captain_local_search(config, nIter, probs, True)
+# plt.plot([i for i in range(len(C_values))], C_values)
+# plt.title("Values des configurations retenues en fonction des itérations")
+# plt.xlabel("Itérations")
+# plt.ylabel("Valeurs de C retenues")
+# plt.show()
